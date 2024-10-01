@@ -9,7 +9,6 @@ import java.net.Socket;
 
 
 import client.Client;
-import client.ClientProcess;
 import tools.JSON;
 
 public class NetworkInterface {
@@ -41,7 +40,8 @@ public class NetworkInterface {
 
         } catch(IOException e){
 
-            ClientProcess.system_message("CONNECTION FAILED, RETRYING...");
+            
+            system_message("CONNECTION FAILED, RETRYING...");
 
             boolean reconnected = retry_connection(5);
             return reconnected;
@@ -75,17 +75,20 @@ public class NetworkInterface {
             try{
 
                 establish_connection();
-                ClientProcess.system_message("CONNECTED");
+                
+                system_message("CONNECTED");
                 return true;
 
             } catch(IOException e){
                 attempts_made++;
-                ClientProcess.system_message("CONNECTION FAILED, RETRYING...");
+                
+                system_message("CONNECTION FAILED, RETRYING...");
             }
 
         }
 
-        ClientProcess.system_message("COULD NOT ESTABLISH CONNECTION WITH SERVER, SHUTTING DOWN");
+        
+        system_message("COULD NOT ESTABLISH CONNECTION WITH SERVER, SHUTTING DOWN");
         return false;
     
     }
@@ -122,7 +125,7 @@ public class NetworkInterface {
             writer.flush();
 
         } catch(IOException e){
-            ClientProcess.system_message("FAILED");
+            system_message("FAILED");
             return;
         }
 
@@ -157,7 +160,14 @@ public class NetworkInterface {
 
 
     public boolean is_connected(){
+
+        // HEARTBEAT HER
+
         return connected_to_server;
+    }
+
+    private void system_message(String message){
+        System.out.println("[SYSTEM]: " + message);
     }
 
     private void sleep(int ms){
