@@ -12,8 +12,12 @@ public class Client {
     }
 
 
-    public void user_prompt(){
-        System.out.println("[" + username + "]: ");
+    public String get_username(){
+        return username;
+    }
+
+    public String user_prompt(){
+        return "[" + username + "]: ";
     }
 
 }
