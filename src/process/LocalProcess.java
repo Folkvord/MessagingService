@@ -3,19 +3,24 @@ package process;
 import java.util.InputMismatchException;
 import java.util.Scanner;
 
-import client.Client;
+import chat.ChatRoom;
+import datastructures.LinkedList;
 import network.NetworkInterface;
+import tools.Display;
 
 public class LocalProcess {
     
     private NetworkInterface net_interface;
 
-    private Client authenticated_client;
+    private String client_username;
     private ClientStatusEnum status = ClientStatusEnum.ANONYMOUS;
 
 
     public LocalProcess(){
-        
+
+        clear_console();
+        net_interface = new NetworkInterface();
+
         local_session();
 
     }
@@ -26,9 +31,6 @@ public class LocalProcess {
     // Bruker denne "hub-akrkitekturen" for å unngå nøstet kode
     public void local_session(){
 
-        clear_console();
-        net_interface = new NetworkInterface();
-
         while(true){
 
             switch(status) {
@@ -38,7 +40,7 @@ public class LocalProcess {
                 case ANONYMOUS:
                     status = anonymous_menu();
                     break;
-            
+
 
                 // Brukeren skal logge på
                 case UNAUTHENTICATED:
@@ -52,14 +54,15 @@ public class LocalProcess {
                     break;
 
 
-                // Brukeren har ingen forbindelse med serveren
-                case OFFLINE:
-                    // status = EN CONNECT TYPE METODE
+                // Brukeren er i en slags sesjon med andre klienter
+                case IN_SESSION:
+                    // status = IDK LULE
                     break;
 
 
-                case IN_SESSION:
-                    // status = IDK LULE
+                // Brukeren har ingen forbindelse med serveren
+                case OFFLINE:
+                    // status = EN CONNECT TYPE METODE
                     break;
 
 
@@ -75,6 +78,40 @@ public class LocalProcess {
 
         }
 
+
+    }
+
+
+    // Menyen som dukker opp før brukeren har logget inn
+    // Metoden printer ut en meny, så tar den et input fra brukeren
+    // Returnerer en status
+    private ClientStatusEnum anonymous_menu(){
+
+        String menu = Display.make_start_menu();
+        System.out.println(menu);
+
+        int choice = get_int_input(1, 2);
+        
+        clear_console();
+        
+        // Login
+        if(choice == 1){
+            net_interface.send_input("Login");
+            return ClientStatusEnum.UNAUTHENTICATED;
+        }
+        // Register
+        else if(choice == 2){
+            net_interface.send_input("Registering");
+            return ClientStatusEnum.ANONYMOUS;
+        }
+        else if(choice == -1){
+            net_interface.send_input("Exit");
+            return ClientStatusEnum.EXITING;
+        }
+        // Exit
+        else{
+            return ClientStatusEnum.ANONYMOUS;
+        }
 
     }
 
@@ -94,30 +131,29 @@ public class LocalProcess {
 
             // Returner om brukernavn er tomt
             if(username.equals("")){
+                net_interface.send_login_attempt("", "");
                 return ClientStatusEnum.ANONYMOUS;
             }
 
             System.out.print("Password: ");
             String password = input.nextLine();
 
-            net_interface.send_login_attempt(username);
-            net_interface.send_login_attempt(password);
+            net_interface.send_login_attempt(username, password);
             
-            String json_payload = net_interface.listen_and_get_payload_despite_type();
+            String json_payload = net_interface.recv_payload();
             boolean attempt_successful = json_payload.equals("correct");
             if(attempt_successful){
                 
                 // Brukeren er autorisert
-                authenticated_client = new Client(username);
+                client_username = username;
                 
                 clear_console();
-                system_message("LOGGED IN AS " + username);
 
                 return ClientStatusEnum.AUTHENTICATED;
                 
             }
             else{
-                process_message("USERNAME OR PASSWORD WAS WRONG");
+                system_message("USERNAME OR PASSWORD WAS WRONG");
             }
 
 
@@ -129,75 +165,86 @@ public class LocalProcess {
     // Prosessen med serveren etter brukeren har logget inn
     private ClientStatusEnum nonlocal_process(){
 
-        Scanner input = new Scanner(System.in);
+        // 1: Lager og printer menyen
+        String menu = Display.make_main_menu(client_username);
+        Display.new_display_message(menu);
 
+        // 2: Tar inn et valg fra brukeren, sender det når det er et gyldig svar 
         while(true){
+            
+            int choice = get_int_input(1, 3);
 
-            System.out.print(authenticated_client.user_prompt());
-            String message = input.nextLine();
+            switch(choice){
 
-            if(message.equals("")) return ClientStatusEnum.UNAUTHENTICATED;
 
-            net_interface.send_client_message(message, authenticated_client);
+                // Om brukeren vil se på chat-ene
+                case 1:
+                    net_interface.send_input(choice+"");
+
+                    new ChatProcess(client_username, net_interface);
+                    break;
+    
+
+                // Om brukeren vil se vennene sine
+                case 2:
+                    //net_interface.send_input(choice+"");
+
+                    break;
+                
+
+                // Om brukeren vil logge ut
+                case 3:
+                    Display.new_display_message("LOGGED OFF");
+    
+                    return ClientStatusEnum.ANONYMOUS;
+    
+            }
+
+            Display.new_display_message(menu);
 
         }
 
 
     }
 
-    // Menyen som dukker opp før brukeren har logget inn
-    // Metoden printer ut en meny, så tar den et input fra brukeren
-    // Returnerer en status
-    private ClientStatusEnum anonymous_menu(){
-
-        System.out.println("--| MENU |--");
-        System.out.println("1: LOGIN");
-        System.out.println("2: REGISTER");
-        System.out.println("OTHER: EXIT");
-        System.out.print("\nINPUT: ");
+    
+ 
+    // Tar inn et int fra brukeren med en fin prompt
+    // Returnerer -2 om det ikke er en int
+    // Returnerer -1 om det er utenfor rangen
+    private int get_int_input(int min, int max){
 
         Scanner input = new Scanner(System.in);
 
         try{
 
-            // Hent brukerens svar og returner den nye statusen
-            // Om noe annet en 1 eller 2, returner EXITING
-            int choice = input.nextInt();
-            clear_console();
+            int user_input = input.nextInt();
+            if(user_input < min || user_input > max) return -1;
 
-            if     (choice == 1) return ClientStatusEnum.UNAUTHENTICATED;
-            else if(choice == 2) return ClientStatusEnum.ANONYMOUS;         // ENDRE TIL REGISTERING
-            else                 return ClientStatusEnum.EXITING;
+            return user_input;
 
         } catch(InputMismatchException e){
-            
-            clear_console();
-            return ClientStatusEnum.EXITING;
-        
+            return -2;
         }
-
+            
     }
 
-
-
-    public boolean is_authenticated(){
-        return (authenticated_client != null);
-    }
-
-    private void sleep(int ms){
+    // Tar inn et input og returnerer true om det er en gyldig indeks, ellers false
+    public boolean is_valid_menu_index(String input, int min, int max){
 
         try{
-            Thread.sleep(ms);
-        } catch(InterruptedException e){
-            System.out.println("LOL");
+
+            int index = Integer.parseInt(input);
+            return !(index < min || index > max);
+
+        } catch(InputMismatchException e){
+            return false;
         }
 
+
     }
 
-    private void process_message(String message){
-        System.out.println("[PROCESS]: " + message);
-    }
-    
+
     private void system_message(String message){
         System.out.println("[SYSTEM]: " + message);
     }
