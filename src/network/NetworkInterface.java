@@ -44,7 +44,7 @@ public class NetworkInterface {
         } catch(IOException e){
 
             
-            system_message("CONNECTION FAILED, RETRYING...");
+            interface_message("CONNECTION FAILED, RETRYING...");
 
             boolean reconnected = retry_connection(5);
             return reconnected;
@@ -80,19 +80,19 @@ public class NetworkInterface {
 
                 establish_connection();
                 
-                system_message("CONNECTED");
+                interface_message("CONNECTED");
                 return true;
 
             } catch(IOException e){
                 attempts_made++;
                 
-                system_message("CONNECTION FAILED, RETRYING...");
+                interface_message("CONNECTION FAILED, RETRYING...");
             }
 
         }
 
         
-        system_message("COULD NOT ESTABLISH CONNECTION WITH SERVER, SHUTTING DOWN");
+        interface_message("COULD NOT ESTABLISH CONNECTION WITH SERVER, SHUTTING DOWN");
         return false;
     
     }
@@ -148,11 +148,11 @@ public class NetworkInterface {
 
     }
     
-    // Henter noe som skal vises til skjermen til brukeren
-    public String[] recv_display(){
+    // Deadass det samme som det over
+    public String recv_status(){
 
         String json_message = listen_to_server();
-        String[] payload = JSON.decrypt_two_types("Display", "Length", json_message);
+        String payload = JSON.decrypt(json_message);
         
         return payload;
 
@@ -162,6 +162,8 @@ public class NetworkInterface {
     @SuppressWarnings("Unchecked")
     public LinkedList<Account> recv_clients(){
 
+        client_is_ready();
+
         try{
 
             LinkedList<Account> clients = (LinkedList<Account>) object_.readObject();
@@ -169,10 +171,10 @@ public class NetworkInterface {
 
         } 
         catch(IOException e){
-            system_message("OBJECT LOST");
+            interface_message("OBJECT LOST");
         }
         catch(ClassNotFoundException e){
-            system_message("OBJECT IDENTITY CRISIS");
+            interface_message("OBJECT IDENTITY CRISIS");
         }
 
         return null;
@@ -183,6 +185,8 @@ public class NetworkInterface {
     @SuppressWarnings("Unchecked")
     public LinkedList<ChatRoom> recv_chatrooms(){
 
+        client_is_ready();
+
         try{
 
             LinkedList<ChatRoom> chatrooms = (LinkedList<ChatRoom>) object_.readObject();
@@ -190,18 +194,19 @@ public class NetworkInterface {
 
         } 
         catch(IOException e){
-            system_message("CHATROOM LOST");
+            interface_message("CHATROOM LOST");
         }
         catch(ClassNotFoundException e){
-            system_message("CHATROOM IDENTITY CRISIS");
+            interface_message("CHATROOM IDENTITY CRISIS");
         }
 
         return null;
 
     }
 
+
+   
     // Sender en melding til serveren, brukes bare av andre "send_x" metoder
-    // Tar en JSON-string
     private void talk_to_server(String encoded_message){
 
         try{
@@ -211,7 +216,7 @@ public class NetworkInterface {
             writer.flush();
 
         } catch(IOException e){
-            system_message("FAILED");
+            interface_message("FAILED");
             return;
         }
 
@@ -231,6 +236,13 @@ public class NetworkInterface {
 
     }
 
+    // Brukes for å si til serveren at man er klar for å hente objekter (Brukes i recv_clients/chatrooms)
+    private void client_is_ready(){
+
+        talk_to_server("Ready");
+
+    }
+
 
 
     // SKAL brukes til å pinge serveren for å se om det er en forbindelse
@@ -241,10 +253,8 @@ public class NetworkInterface {
         return connected_to_server;
     }
 
-
-
-    private void system_message(String message){
-        System.out.println("[SYSTEM]: " + message);
+    private void interface_message(String message){
+        System.out.println("[NETWORK]: " + message);
     }
 
     private void sleep(int ms){
